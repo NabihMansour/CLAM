@@ -10,6 +10,7 @@ import argparse
 import pdb
 import pandas as pd
 from tqdm import tqdm
+import cv2
 
 def stitching(file_path, wsi_object, downscale = 64):
 	start = time.time()
@@ -44,8 +45,91 @@ def patching(WSI_object, **kwargs):
 	patch_time_elapsed = time.time() - start_time
 	return file_path, patch_time_elapsed
 
+# def filter_black_contours(wsi_object, contours, seg_level, threshold=15.5):
+#     """
+#     SATURATION FILTER (The "Color" Check).
+#     Rejects contours that are grey/colorless (Markers), 
+#     keeps contours that are pink/purple/brown (Tissue).
+    
+#     threshold (int): Saturation cutoff (0-255). 
+#                      < 15 is usually Grey/Black/White. 
+#                      > 20 is usually Tissue.
+#     """
+#     valid_contours = []
 
-def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_dir, 
+#     # 1. Get Thumbnail (Use 2048 for better resolution if possible)
+#     slide = wsi_object.getOpenSlide()
+#     w_full, h_full = slide.level_dimensions[0]
+    
+#     # We bump this to 2048 to help with the blurring issue
+#     thumbnail = slide.get_thumbnail((2048, 2048))
+#     w_thumb, h_thumb = thumbnail.size
+#     thumb_np = np.array(thumbnail.convert('RGB'))
+    
+#     scale_x = w_thumb / w_full
+#     scale_y = h_thumb / h_full
+
+#     print(f"  Filtering {len(contours)} contours using Color Saturation...")
+
+#     for i, contour in enumerate(contours):
+#         x, y, w, h = cv2.boundingRect(contour)
+        
+# 		# check size of countour, if too big, keep it
+#         contour_area = w * h
+#         total_area = w_full * h_full
+#         if contour_area > (total_area * 0.05):
+#             valid_contours.append(contour)
+#             continue
+
+#         # Scale to thumbnail
+#         x_s = int(x * scale_x); y_s = int(y * scale_y)
+#         w_s = int(w * scale_x); h_s = int(h * scale_y)
+        
+#         # Safety checks
+#         if w_s < 1 or h_s < 1: 
+#             valid_contours.append(contour)
+#             continue
+            
+#         # Crop patch
+#         y_end = min(y_s + h_s, h_thumb)
+#         x_end = min(x_s + w_s, w_thumb)
+#         patch = thumb_np[y_s:y_end, x_s:x_end]
+        
+#         if patch.size == 0:
+#             valid_contours.append(contour)
+#             continue
+
+#         # --- NEW LOGIC: SATURATION CHECK ---
+        
+#         # 1. Create Mask (To ignore white background)
+#         # We need the contour relative to the patch
+#         contour_thumb = (contour * [scale_x, scale_y]).astype(np.int32)
+#         h_p, w_p, _ = patch.shape
+#         mask = np.zeros((h_p, w_p), dtype=np.uint8)
+#         cv2.drawContours(mask, [contour_thumb], -1, (255), thickness=cv2.FILLED, 
+#                          offset=(-x_s, -y_s))
+        
+#         # 2. Convert to HSV Color Space
+#         # H = Color, S = Amount of Color, V = Brightness
+#         patch_hsv = cv2.cvtColor(patch, cv2.COLOR_RGB2HSV)
+        
+#         # 3. Calculate Mean Saturation (Index 1) ONLY inside the mask
+#         # cv2.mean returns (H, S, V, A)
+#         mean_hsv = cv2.mean(patch_hsv, mask=mask)
+#         mean_saturation = mean_hsv[1]
+#         print(f"  > Contour ID {i} Mean Saturation: {mean_saturation:.1f}")
+#         # 4. Decision
+#         # Pink Tissue Saturation is usually > 40
+#         # Black/Grey Marker Saturation is usually < 10
+#         if mean_saturation > threshold:
+#             valid_contours.append(contour)
+#         else:
+#             print(f"  > Dropped Grey Artifact ID {i} (Saturation: {mean_saturation:.1f})")
+
+#     return valid_contours
+
+
+def seg_and_patch(save_dir, patch_save_dir, mask_save_dir, stitch_save_dir, source = None, 
 				  patch_size = 256, step_size = 256, 
 				  seg_params = {'seg_level': -1, 'sthresh': 8, 'mthresh': 7, 'close': 4, 'use_otsu': False,
 				  'keep_ids': 'none', 'exclude_ids': 'none'},
@@ -56,18 +140,29 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 				  use_default_params = False, 
 				  seg = False, save_mask = True, 
 				  stitch= False, 
-				  patch = False, auto_skip=True, process_list = None):
+				  patch = False, auto_skip=True, process_list = None, csv_path=None):
 	
 
-
-	slides = sorted(os.listdir(source))
-	slides = [slide for slide in slides if os.path.isfile(os.path.join(source, slide))]
+	if csv_path is not None:
+		print(f"Loading slide paths from CSV: {csv_path}")
+		path_df = pd.read_csv(csv_path)
+		# Create a list of tuples (slide_id, path)
+		slide_path_pairs = zip(path_df['slide_id'].values, path_df['full_path'].values)
+		# Filter efficiently
+		slides = [sid for sid, full_path in slide_path_pairs if os.path.isfile(full_path)]
+	else:
+		slides = sorted(os.listdir(source))
+		slides = [slide for slide in slides if os.path.isfile(os.path.join(source, slide))]
+		
 	if process_list is None:
 		df = initialize_df(slides, seg_params, filter_params, vis_params, patch_params)
 	
 	else:
 		df = pd.read_csv(process_list)
 		df = initialize_df(df, seg_params, filter_params, vis_params, patch_params)
+
+	if csv_path is not None:
+		df = pd.merge(df, path_df[['slide_id', 'full_path']], on='slide_id', how='left')
 
 	mask = df['process'] == 1
 	process_stack = df[mask]
@@ -103,7 +198,12 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 			continue
 
 		# Inialize WSI
-		full_path = os.path.join(source, slide)
+		if csv_path is not None:
+			full_path = process_stack.loc[idx, 'full_path']
+		else:
+			full_path = os.path.join(source, slide)
+
+
 		WSI_object = WholeSlideImage(full_path)
 
 		if use_default_params:
@@ -187,6 +287,19 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 		seg_time_elapsed = -1
 		if seg:
 			WSI_object, seg_time_elapsed = segment(WSI_object, current_seg_params, current_filter_params) 
+			# print("Filtering dark artifacts...")
+			# original_count = len(WSI_object.contours_tissue)
+
+			# # Retrieve the seg_level used during segmentation
+			# active_seg_level = current_seg_params['seg_level']
+
+			# # Call the new optimized function
+			# WSI_object.contours_tissue = filter_black_contours(
+			# 	WSI_object, 
+			# 	WSI_object.contours_tissue, 
+        	# 	seg_level=active_seg_level, 
+        	# 	threshold=15.5)
+			# print(f"Dropped {original_count - len(WSI_object.contours_tissue)} contours.")
 
 		if save_mask:
 			mask = WSI_object.visWSI(**current_vis_params)
@@ -228,7 +341,7 @@ def seg_and_patch(source, save_dir, patch_save_dir, mask_save_dir, stitch_save_d
 	return seg_times, patch_times
 
 parser = argparse.ArgumentParser(description='seg and patch')
-parser.add_argument('--source', type = str,
+parser.add_argument('--source', type = str, default=None,
 					help='path to folder containing raw wsi image files')
 parser.add_argument('--step_size', type = int, default=256,
 					help='step_size')
@@ -246,9 +359,13 @@ parser.add_argument('--patch_level', type=int, default=0,
 					help='downsample level at which to patch')
 parser.add_argument('--process_list',  type = str, default=None,
 					help='name of list of images to process with parameters (.csv)')
+parser.add_argument('--csv_path', type=str, default=None, help='Path to CSV with slide_id and full_path columns')
 
 if __name__ == '__main__':
 	args = parser.parse_args()
+
+	if args.source is None and args.csv_path is None:
+		parser.error("You must provide either --source OR --csv_path.")
 
 	patch_save_dir = os.path.join(args.save_dir, 'patches')
 	mask_save_dir = os.path.join(args.save_dir, 'masks')
@@ -260,16 +377,20 @@ if __name__ == '__main__':
 	else:
 		process_list = None
 
-	print('source: ', args.source)
+	if args.csv_path:
+		print('Loading slide paths from CSV: ', args.csv_path)
+	else:
+		print('Loading slide paths from source directory: ', args.source)
 	print('patch_save_dir: ', patch_save_dir)
 	print('mask_save_dir: ', mask_save_dir)
 	print('stitch_save_dir: ', stitch_save_dir)
 	
-	directories = {'source': args.source, 
-				   'save_dir': args.save_dir,
+	directories = {'save_dir': args.save_dir,
 				   'patch_save_dir': patch_save_dir, 
 				   'mask_save_dir' : mask_save_dir, 
-				   'stitch_save_dir': stitch_save_dir} 
+				   'stitch_save_dir': stitch_save_dir}
+	if args.source is not None:
+		directories['source'] = args.source 
 
 	for key, val in directories.items():
 		print("{} : {}".format(key, val))
@@ -308,4 +429,4 @@ if __name__ == '__main__':
 											seg = args.seg,  use_default_params=False, save_mask = True, 
 											stitch= args.stitch,
 											patch_level=args.patch_level, patch = args.patch,
-											process_list = process_list, auto_skip=args.no_auto_skip)
+											process_list = process_list, auto_skip=args.no_auto_skip, csv_path=args.csv_path)

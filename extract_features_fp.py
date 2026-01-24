@@ -58,6 +58,9 @@ parser.add_argument('--model_name', type=str, default='resnet50_trunc', choices=
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--no_auto_skip', default=False, action='store_true')
 parser.add_argument('--target_patch_size', type=int, default=224)
+# new argument to read full path from csv file:
+parser.add_argument('--path_from_csv', action='store_true', 
+                    help='If set, reads the full path of the slide from the "full_path" column in the csv_path file.')
 args = parser.parse_args()
 
 
@@ -66,8 +69,19 @@ if __name__ == '__main__':
 	csv_path = args.csv_path
 	if csv_path is None:
 		raise NotImplementedError
+	
+	# Validation: If we are NOT reading paths from CSV, we MUST have a slide directory.
+	if args.data_slide_dir is None and not args.path_from_csv:
+		raise ValueError("You must provide --data_slide_dir unless --path_from_csv is set.")
 
 	bags_dataset = Dataset_All_Bags(csv_path)
+
+	# check if the csv contains full paths
+	if args.path_from_csv:
+        # We access bags_dataset.df directly instead of reloading the CSV
+		if 'full_path' not in bags_dataset.df.columns:
+			raise ValueError(f"The CSV at {csv_path} does not contain a 'full_path' column.")
+		print(f"Using 'full_path' column from CSV for slide locations.")
 	
 	os.makedirs(args.feat_dir, exist_ok=True)
 	os.makedirs(os.path.join(args.feat_dir, 'pt_files'), exist_ok=True)
@@ -86,7 +100,14 @@ if __name__ == '__main__':
 		slide_id = bags_dataset[bag_candidate_idx].split(args.slide_ext)[0]
 		bag_name = slide_id+'.h5'
 		h5_file_path = os.path.join(args.data_h5_dir, 'patches', bag_name)
-		slide_file_path = os.path.join(args.data_slide_dir, slide_id+args.slide_ext)
+
+		if args.path_from_csv:
+            # DIRECT ACCESS: We use the dataset's internal dataframe
+            # This is safer and faster than reading the CSV twice
+			slide_file_path = bags_dataset.df.iloc[bag_candidate_idx]['full_path']
+		else:
+            # Original logic: Construct path from root dir + slide_id + extension
+			slide_file_path = os.path.join(args.data_slide_dir, slide_id+args.slide_ext)
 		print('\nprogress: {}/{}'.format(bag_candidate_idx, total))
 		print(slide_id)
 
