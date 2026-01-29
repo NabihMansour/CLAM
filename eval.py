@@ -39,7 +39,7 @@ parser.add_argument('--fold', type=int, default=-1, help='single fold to evaluat
 parser.add_argument('--micro_average', action='store_true', default=False, 
                     help='use micro_average instead of macro_avearge for multiclass AUC')
 parser.add_argument('--split', type=str, choices=['train', 'val', 'test', 'all'], default='test')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping', 'task_3_recurrance_prediction'])
 parser.add_argument('--drop_out', type=float, default=0.25, help='dropout')
 parser.add_argument('--embed_dim', type=int, default=1024)
 args = parser.parse_args()
@@ -77,6 +77,16 @@ if args.task == 'task_1_tumor_vs_normal':
                             shuffle = False, 
                             print_info = True,
                             label_dict = {'normal_tissue':0, 'tumor_tissue':1},
+                            patient_strat=False,
+                            ignore=[])
+
+elif args.task == 'task_3_recurrance_prediction':
+    args.n_classes=2
+    dataset = Generic_MIL_Dataset(csv_path = '/media/savirlab/My Book/SCC_CLAM/Experiments/all_slides/all_slides_with_labels.csv',
+                            data_dir= '/media/savirlab/My Book/SCC_CLAM/features_data_dir/',
+                            shuffle = False, 
+                            print_info = True,
+                            label_dict = {'no_recurrence':0, 'recurrence':1},
                             patient_strat=False,
                             ignore=[])
 
