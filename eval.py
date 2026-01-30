@@ -82,8 +82,8 @@ if args.task == 'task_1_tumor_vs_normal':
 
 elif args.task == 'task_3_recurrance_prediction':
     args.n_classes=2
-    dataset = Generic_MIL_Dataset(csv_path = '/media/savirlab/My Book/SCC_CLAM/Experiments/all_slides/all_slides_with_labels.csv',
-                            data_dir= '/media/savirlab/My Book/SCC_CLAM/features_data_dir/',
+    dataset = Generic_MIL_Dataset(csv_path = '/media/savirlab/My Book/SCC_CLAM/full_dataset.csv',
+                            data_dir= '/media/savirlab/My Book/SCC_CLAM/features_data_dir/recurrance_prediction_all_slides',
                             shuffle = False, 
                             print_info = True,
                             label_dict = {'no_recurrence':0, 'recurrence':1},

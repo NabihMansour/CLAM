@@ -2,6 +2,9 @@ import numpy as np
 import torch
 from utils.utils import *
 import os
+import subprocess
+import time
+import sys
 from dataset_modules.dataset_generic import save_splits
 from models.model_mil import MIL_fc, MIL_fc_mc
 from models.model_clam import CLAM_MB, CLAM_SB
@@ -10,6 +13,35 @@ from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.metrics import auc as calc_auc
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def check_gpu_temp_and_sleep(threshold=80, sleep_time=30):
+    """
+    Checks GPU temperature. If it exceeds 'threshold', sleeps for 'sleep_time' seconds.
+    """
+    try:
+        # Query NVIDIA-SMI for the temperature
+        result = subprocess.run(
+            ['nvidia-smi', '--query-gpu=temperature.gpu', '--format=csv,noheader,nounits'],
+            capture_output=True, text=True
+        )
+
+        output = result.stdout.strip()
+       
+        if not output.isdigit():
+            print(f"Critical Warning: nvidia-smi returned: '{output}'")
+            print("The GPU may have disconnected due to overheating.")
+            print(f"Exiting the program at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
+            sys.exit(1)
+           
+        current_temp = int(output)
+       
+        if current_temp > threshold:
+            print(f"GPU Overheating ({current_temp}°C). Sleeping for {sleep_time}s to cool down...")
+            time.sleep(sleep_time)
+            print("Resuming work...")
+           
+    except Exception as e:
+        print(f"Could not read GPU temp: {e}")
 
 class Accuracy_Logger(object):
     """Accuracy logger"""
@@ -63,7 +95,7 @@ class EarlyStopping:
         self.counter = 0
         self.best_score = None
         self.early_stop = False
-        self.val_loss_min = np.Inf
+        self.val_loss_min = np.inf
 
     def __call__(self, epoch, val_loss, model, ckpt_name = 'checkpoint.pt'):
 
@@ -234,6 +266,8 @@ def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writ
 
     print('\n')
     for batch_idx, (data, label) in enumerate(loader):
+        # Check temperature before moving data to GPU
+        check_gpu_temp_and_sleep(threshold=78, sleep_time=45)
         data, label = data.to(device), label.to(device)
         logits, Y_prob, Y_hat, _, instance_dict = model(data, label=label, instance_eval=True)
 
@@ -297,6 +331,8 @@ def train_loop(epoch, model, loader, optimizer, n_classes, writer = None, loss_f
 
     print('\n')
     for batch_idx, (data, label) in enumerate(loader):
+        # Check temperature before moving data to GPU
+        check_gpu_temp_and_sleep(threshold=78, sleep_time=45)
         data, label = data.to(device), label.to(device)
 
         logits, Y_prob, Y_hat, _, _ = model(data)
@@ -346,6 +382,7 @@ def validate(cur, epoch, model, loader, n_classes, early_stopping = None, writer
 
     with torch.no_grad():
         for batch_idx, (data, label) in enumerate(loader):
+            check_gpu_temp_and_sleep(threshold=78, sleep_time=45)
             data, label = data.to(device, non_blocking=True), label.to(device, non_blocking=True)
 
             logits, Y_prob, Y_hat, _, _ = model(data)
@@ -408,6 +445,7 @@ def validate_clam(cur, epoch, model, loader, n_classes, early_stopping = None, w
     sample_size = model.k_sample
     with torch.inference_mode():
         for batch_idx, (data, label) in enumerate(loader):
+            check_gpu_temp_and_sleep(threshold=78, sleep_time=45)
             data, label = data.to(device), label.to(device)      
             logits, Y_prob, Y_hat, _, instance_dict = model(data, label=label, instance_eval=True)
             acc_logger.log(Y_hat, label)
@@ -495,6 +533,7 @@ def summary(model, loader, n_classes):
     patient_results = {}
 
     for batch_idx, (data, label) in enumerate(loader):
+        check_gpu_temp_and_sleep(threshold=78, sleep_time=45)
         data, label = data.to(device), label.to(device)
         slide_id = slide_ids.iloc[batch_idx]
         with torch.inference_mode():
