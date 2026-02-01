@@ -152,7 +152,13 @@ def train(datasets, cur, args):
         if device.type == 'cuda':
             loss_fn = loss_fn.cuda()
     else:
-        loss_fn = nn.CrossEntropyLoss()
+        # if we are in task_3_recurrance_prediction we give higher weight to no_recurrance (class 0)
+        if args.task == 'task_3_recurrance_prediction':
+            class_weights = torch.tensor([5.0, 1.0], dtype=torch.float32).to(device)
+            loss_fn = nn.CrossEntropyLoss(weight=class_weights)
+            print('Using class weights: {}'.format(class_weights))
+        else:
+            loss_fn = nn.CrossEntropyLoss()
     print('Done!')
     
     print('\nInit Model...', end=' ')

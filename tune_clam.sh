@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# script to tune learning rate and weight decay for CLAM model on fold 0
-learning_rates=(5e-4 1e-4 5e-5) # 2e-4 wasn't working well
+# script to tune learning rate and weight decay for CLAM model on fold 1
+learning_rates=(3e-4 2e-4 1e-4)
 weight_decays=(1e-4 1e-5)
 
 # Create a master log directory for bash outputs
@@ -10,7 +10,7 @@ mkdir -p bash_logs
 for lr in "${learning_rates[@]}"; do
   for reg in "${weight_decays[@]}"; do
     
-    EXP_NAME="debug_fold_0_lr${lr}_reg${reg}"
+    EXP_NAME="debug_fold_1_lr${lr}_reg${reg}"
     LOG_FILE="bash_logs/${EXP_NAME}.log"
     
     echo "==================================================" | tee -a "$LOG_FILE"
@@ -22,14 +22,14 @@ for lr in "${learning_rates[@]}"; do
     # 3. 'tee' saves output to file AND shows it on screen
     CUDA_VISIBLE_DEVICES=0 python main.py \
       --data_root_dir '/media/savirlab/My Book/SCC_CLAM/features_data_dir' \
-      --drop_out 0.25 \
+      --drop_out 0.5 \
       --early_stopping \
       --lr "$lr" \
       --k 4 \
-      --k_start 0 \
-      --k_end 1 \
+      --k_start 1 \
+      --k_end 2 \
       --reg "$reg" \
-      --max_epochs 40 \
+      --max_epochs 50 \
       --weighted_sample \
       --bag_loss ce \
       --inst_loss svm \
