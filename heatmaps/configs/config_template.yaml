@@ -43,6 +43,8 @@ model_arguments:
   model_size: small
   drop_out: 0.
   embed_dim: 1024
+  # optional   encoding_dim: 512
+  # optional   attn_dim: 256
 heatmap_arguments:
   # downsample at which to visualize heatmap (-1 refers to downsample closest to 32x downsample)
   vis_level: 1

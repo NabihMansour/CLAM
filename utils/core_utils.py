@@ -152,19 +152,15 @@ def train(datasets, cur, args):
         if device.type == 'cuda':
             loss_fn = loss_fn.cuda()
     else:
-        # if we are in task_3_recurrance_prediction we give higher weight to no_recurrance (class 0)
-        if args.task == 'task_3_recurrance_prediction':
-            class_weights = torch.tensor([5.0, 1.0], dtype=torch.float32).to(device)
-            loss_fn = nn.CrossEntropyLoss(weight=class_weights)
-            print('Using class weights: {}'.format(class_weights))
-        else:
-            loss_fn = nn.CrossEntropyLoss()
+        loss_fn = nn.CrossEntropyLoss()
     print('Done!')
     
     print('\nInit Model...', end=' ')
     model_dict = {"dropout": args.drop_out, 
                   'n_classes': args.n_classes, 
-                  "embed_dim": args.embed_dim}
+                  "embed_dim": args.embed_dim,
+                  "encoding_dim": args.encoding_dim,
+                  "attn_dim": args.attn_dim}
     
     if args.model_size is not None and args.model_type != 'mil':
         model_dict.update({"size_arg": args.model_size})

@@ -42,6 +42,10 @@ parser.add_argument('--split', type=str, choices=['train', 'val', 'test', 'all']
 parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping', 'task_3_recurrance_prediction'])
 parser.add_argument('--drop_out', type=float, default=0.25, help='dropout')
 parser.add_argument('--embed_dim', type=int, default=1024)
+parser.add_argument('--encoding_dim', type=int, default=None, help='Dimension of the first projection layer.'
+                         'This compresses the input features before classification. If None, uses default depending on model_size.')
+parser.add_argument('--attn_dim', type=int, default=None, help='Internal dimension of the attention mechanism. ' +
+                        'If None, uses default depending on model_size.')
 args = parser.parse_args()
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")

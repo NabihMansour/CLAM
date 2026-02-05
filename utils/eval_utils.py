@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 def initiate_model(args, ckpt_path, device='cuda'):
     print('Init Model')    
-    model_dict = {"dropout": args.drop_out, 'n_classes': args.n_classes, "embed_dim": args.embed_dim}
+    model_dict = {"dropout": args.drop_out, 'n_classes': args.n_classes, "embed_dim": args.embed_dim, "encoding_dim": args.encoding_dim, "attn_dim": args.attn_dim}
     
     if args.model_size is not None and args.model_type in ['clam_sb', 'clam_mb']:
         model_dict.update({"size_arg": args.model_size})

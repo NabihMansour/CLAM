@@ -110,6 +110,10 @@ parser.add_argument('--subtyping', action='store_true', default=False,
 parser.add_argument('--bag_weight', type=float, default=0.7,
                     help='clam: weight coefficient for bag-level loss (default: 0.7)')
 parser.add_argument('--B', type=int, default=8, help='numbr of positive/negative patches to sample for clam')
+parser.add_argument('--encoding_dim', type=int, default=None, help='Dimension of the first projection layer.'
+                         'This compresses the input features before classification. If None, uses default depending on model_size.')
+parser.add_argument('--attn_dim', type=int, default=None, help='Internal dimension of the attention mechanism. ' +
+                        'If None, uses default depending on model_size.')
 args = parser.parse_args()
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -127,7 +131,6 @@ def seed_torch(seed=7):
 
 seed_torch(args.seed)
 
-encoding_size = 1024
 settings = {'num_splits': args.k, 
             'k_start': args.k_start,
             'k_end': args.k_end,

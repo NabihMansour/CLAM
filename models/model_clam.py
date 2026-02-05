@@ -76,10 +76,14 @@ args:
 """
 class CLAM_SB(nn.Module):
     def __init__(self, gate = True, size_arg = "small", dropout = 0., k_sample=8, n_classes=2,
-        instance_loss_fn=nn.CrossEntropyLoss(), subtyping=False, embed_dim=1024):
+        instance_loss_fn=nn.CrossEntropyLoss(), subtyping=False, embed_dim=1024, encoding_dim=None, attn_dim=None):
         super().__init__()
         self.size_dict = {"small": [embed_dim, 512, 256], "big": [embed_dim, 512, 384]}
         size = self.size_dict[size_arg]
+        if encoding_dim is not None:
+            size[1] = encoding_dim
+        if attn_dim is not None:
+            size[2] = attn_dim
         fc = [nn.Linear(size[0], size[1]), nn.ReLU(), nn.Dropout(dropout)]
         if gate:
             attention_net = Attn_Net_Gated(L = size[1], D = size[2], dropout = dropout, n_classes = 1)
@@ -182,10 +186,14 @@ class CLAM_SB(nn.Module):
 
 class CLAM_MB(CLAM_SB):
     def __init__(self, gate = True, size_arg = "small", dropout = 0., k_sample=8, n_classes=2,
-        instance_loss_fn=nn.CrossEntropyLoss(), subtyping=False, embed_dim=1024):
+        instance_loss_fn=nn.CrossEntropyLoss(), subtyping=False, embed_dim=1024, encoding_dim=None, attn_dim=None):
         nn.Module.__init__(self)
         self.size_dict = {"small": [embed_dim, 512, 256], "big": [embed_dim, 512, 384]}
         size = self.size_dict[size_arg]
+        if encoding_dim is not None:
+            size[1] = encoding_dim
+        if attn_dim is not None:
+            size[2] = attn_dim
         fc = [nn.Linear(size[0], size[1]), nn.ReLU(), nn.Dropout(dropout)]
         if gate:
             attention_net = Attn_Net_Gated(L = size[1], D = size[2], dropout = dropout, n_classes = n_classes)
